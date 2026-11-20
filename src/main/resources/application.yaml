@@ -1,3 +1,151 @@
 spring:
   application:
     name: fluxoapp
+
+  profiles:
+    # Padrão para o notebook. Em outros ambientes: SPRING_PROFILES_ACTIVE=postgres | prod
+    active: dev
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate          # o schema é responsabilidade exclusiva do Flyway
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC          # instantes sempre em UTC; o fuso do usuário é aplicado na camada de negócio
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+---
+# ---------------------------------------------------------------
+# dev: H2 em modo PostgreSQL. Uso diário no notebook (sem Docker).
+# ---------------------------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:h2:file:./.data/fluxodb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  secret: ${JWT_SECRET:dev-only-secret-nao-use-em-producao-troque-isso-1234567890}
+  access-token-minutes: 1440   # 24h; sem refresh token no MVP (ver ADR)
+
+logging:
+  level:
+    com.fluxo: DEBUG
+    org.springframework.security: DEBUG
+
+---
+# ---------------------------------------------------------------
+# postgres: PostgreSQL local via docker compose up -d
+# (máquina que roda Docker; valida migrations e queries no banco real)
+# ---------------------------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: postgres
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/fluxo}
+    driver-class-name: org.postgresql.Driver
+    username: ${DATABASE_USERNAME:fluxo}
+    password: ${DATABASE_PASSWORD:fluxo_dev}
+
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  secret: ${JWT_SECRET:dev-only-secret-nao-use-em-producao-troque-isso-1234567890}
+  access-token-minutes: 1440   # 24h; sem refresh token no MVP (ver ADR)
+
+logging:
+  level:
+    com.fluxo: DEBUG
+    org.springframework.security: DEBUG
+
+---
+# ---------------------------------------------------------------
+# prod: tudo vem de variáveis de ambiente. Sem valores padrão:
+# se faltar algo (principalmente JWT_SECRET), a aplicação falha ao subir.
+# DATABASE_URL deve estar no formato JDBC: jdbc:postgresql://host:5432/banco
+# ---------------------------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: ${DATABASE_URL}
+    driver-class-name: org.postgresql.Driver
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+
+  jpa:
+    show-sql: false
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-minutes: 1440   # 24h; sem refresh token no MVP (ver ADR)
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    com.fluxo: INFO
+    org.springframework.security: WARN
+
+---
+# ---------------------------------------------------------------
+# test: H2 em memória (roda sem Docker). Os testes com Postgres real
+# (Testcontainers) ficam para o CI / máquina com Docker.
+# ---------------------------------------------------------------
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  datasource:
+    url: jdbc:h2:mem:fluxotest;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+jwt:
+  secret: segredo-somente-para-testes-com-pelo-menos-32-bytes-0123456789
+  access-token-minutes: 1440   # 24h; sem refresh token no MVP (ver ADR)
+
+logging:
+  level:
+    com.fluxo: DEBUG
