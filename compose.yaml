@@ -1,9 +1,23 @@
+# PostgreSQL local para o perfil "postgres".
+# Uso: docker compose up -d   |   parar: docker compose down   |   apagar dados: docker compose down -v
 services:
   postgres:
-    image: 'postgres:latest'
+    image: postgres:17
+    container_name: fluxo-postgres
+    restart: unless-stopped
     environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
+      POSTGRES_DB: fluxo
+      POSTGRES_USER: fluxo
+      POSTGRES_PASSWORD: fluxo_dev
     ports:
-      - '5432'
+      - "5432:5432"
+    volumes:
+      - fluxo-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fluxo -d fluxo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  fluxo-pgdata:
